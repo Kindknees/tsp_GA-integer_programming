@@ -1,10 +1,11 @@
 # pso_tsp.py
 import numpy as np
 from utils import tour_length, local_search_mix
-
+from tabu import tabu_search_vns
 class PSO_TSP:
+
     """Permutation PSO 版本：Vel.=swap 序列；Pos.=tour"""
-    def __init__(self, D, pop_size=100, w=0.8, c1=1.5, c2=1,
+    def __init__(self, D, pop_size=100, w=0.8, c1=1.4, c2=1,
                  local_opt=True, seed=None):
         self.D, self.n = D, D.shape[0] - 1            # n = 47 (不含 city0)
         self.rng = np.random.default_rng(seed)
@@ -91,6 +92,7 @@ class PSO_TSP:
     def run(self, iters=1000, verbose=False):
         for gen in range(iters):
             self.step()
+
             if verbose and gen % 100 == 0:
                 print(f"gen {gen:4d} | best = {self.gbest_len:.2f}")
         return self.gbest_len, [0]+self.gbest.tolist()+[0]

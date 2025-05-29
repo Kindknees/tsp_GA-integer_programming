@@ -6,6 +6,8 @@ from pso_tsp import PSO_TSP
 from localsearch import local_search_full
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
+from tabu import tabu_search_vns
+
 # 建立 FontProperties 物件
 myfont = FontProperties(fname="NotoSansTC-Regular.otf")
 
@@ -15,14 +17,15 @@ def build_D(csv_path):
     D = np.zeros((m, m))
     for i in range(m):
         for j in range(m):
-            D[i,j] = np.hypot(xs[i]-xs[j], ys[i]-ys[j])
+            # D[i,j] = np.hypot(xs[i]-xs[j], ys[i]-ys[j])
+            # D[i, j] = int(np.floor(np.hypot(xs[i] - xs[j], ys[i] - ys[j])))
+            D[i, j] = int(np.round(np.hypot(xs[i] - xs[j], ys[i] - ys[j])))
     return D
 
 if __name__ == "__main__":
     CSV = "data/xy48.csv"
     POP = 100
-    ITERS = 650
-
+    ITERS = 601
     D = build_D(CSV)
     o=[]
     p=[]
@@ -42,6 +45,19 @@ if __name__ == "__main__":
         o.append(best_len)
         p.append(best_route)
 
+        #  # ---- ✨ Tabu Search 二次強化 ----
+        # tabu_len, tabu_route = tabu_search_vns(
+        # best_route[1:-1], D,
+        # max_iter=700,     # 可酌量調
+        # tenure=25,
+        # k_max=3,
+        # kick_interval=120,
+        # seed=None
+        # )
+        # if tabu_len < best_len:
+        #     best_len   = tabu_len
+        #     best_route = [0] + tabu_route + [0]
+
         # ---- 追加最終 OR-opt local search ----
         refined = local_search_full(best_route[1:-1], D)     # 去掉兩端 0
         refined_len = tour_length(refined, D)
@@ -55,8 +71,6 @@ if __name__ == "__main__":
         oi.append(best_len)
         pi.append(best_route)
 print("Best length :", min(oi))
-
-
 
 def print_stats(data, label):
     data_np = np.array(data)
@@ -89,7 +103,13 @@ plt.ylabel("路徑長度", fontproperties=myfont)
 plt.xticks(fontproperties=myfont)
 plt.yticks(fontproperties=myfont)
 plt.show()
-print("Best distance :",o)
-print("Best route    :",p)
-print("Refined distance :",oi)
-print("Refined route    :",pi)
+
+# ==== 統計「命中最佳解」與「低於門檻」次數 ====
+OPT_LEN     = 33523        # att48 的已知最優長度
+THRESHOLDS  = 34148    # 你指定的門檻
+
+hit_opt_cnt = sum(1 for v in oi if v == OPT_LEN)
+below_thr_cnt = sum(1 for v in oi if v < THRESHOLDS)
+
+print(f"\n★ 命中最佳解 {OPT_LEN} 的次數：{hit_opt_cnt} / {len(oi)}")
+print(f"★ 長度 < {THRESHOLDS} 的次數：{below_thr_cnt} / {len(oi)}")

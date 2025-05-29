@@ -1,4 +1,24 @@
 
+import numpy as np
+import pandas as pd
+
+# def load_distance(csv_path):
+#     data = pd.read_csv(csv_path, header=None).values
+#     return data[:,0], data[:,1]
+
+# def build_D(csv_path):
+#     xs, ys = load_distance(csv_path)
+#     m = len(xs)
+#     D = np.zeros((m, m))
+#     for i in range(m):
+#         for j in range(m):
+#             D[i,j] = np.hypot(xs[i]-xs[j], ys[i]-ys[j])
+#     return D
+
+
+
+# D = build_D("C:/Users/eric3/OneDrive/桌面/tsp_pso/data/xy48.csv")
+
 def farthest_insertion(D):
     """
     Farthest Insertion heuristic for TSP.
@@ -37,3 +57,4 @@ def farthest_insertion(D):
 
     # 回傳去掉開頭0的部分，作為不含0的染色體
     return tour[1:]
+# print("Farthest Insertion:", farthest_insertion(D))
