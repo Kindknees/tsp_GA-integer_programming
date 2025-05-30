@@ -16,7 +16,9 @@ def build_D(xs, ys):
     D = np.zeros((n, n))
     for i in range(n):
         for j in range(n):
-            D[i, j] = np.hypot(xs[i] - xs[j], ys[i] - ys[j])
+            # D[i, j] = int(np.floor(np.hypot(xs[i] - xs[j], ys[i] - ys[j])))
+            D[i, j] = int(np.round(np.hypot(xs[i] - xs[j], ys[i] - ys[j])))
+            # D[i, j] = np.hypot(xs[i] - xs[j], ys[i] - ys[j])
     return D
 
 

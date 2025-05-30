@@ -1,7 +1,22 @@
-
+import pandas as pd
 import numpy as np
 from utils import tour_length          # ← 跟主程式同一支長度函式
+# def load_distance(csv_path):
+#     data = pd.read_csv(csv_path, header=None).values
+#     return data[:,0], data[:,1]
 
+# def build_D(csv_path):
+#     xs, ys = load_distance(csv_path)
+#     m = len(xs)
+#     D = np.zeros((m, m))
+#     for i in range(m):
+#         for j in range(m):
+#             D[i,j] = np.hypot(xs[i]-xs[j], ys[i]-ys[j])
+#     return D
+
+
+
+# D = build_D("C:/Users/eric3/OneDrive/桌面/tsp_pso/data/xy48.csv")
 # localsearch.py
 
 def _or_once(route, k, D):
@@ -40,3 +55,4 @@ def local_search_full(route, D):
                 break
         else:
             return cur
+# print("localsearch.py",local_search_full( [15, 21, 2, 33, 40, 28, 1, 41, 25, 3, 34, 44, 9, 23, 4, 47, 38, 31, 20, 46, 12, 24, 13, 22, 10, 11, 39, 14, 45, 32, 19, 29, 42, 16, 26, 18, 36, 5, 27, 35, 6, 17, 43, 30, 37, 8, 7],D))

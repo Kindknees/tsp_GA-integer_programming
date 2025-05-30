@@ -1,4 +1,4 @@
-# clustering.py
+# initial.py
 import numpy as np
 import pandas as pd
 import skfuzzy as fuzz
@@ -35,7 +35,8 @@ def fcm_initial_tours(csv_path, k=10, pop_size=100,a_ratio=0.45,b_ratio=0.45, se
     D = np.zeros((n, n))
     for i in range(n):
         for j in range(n):
-            D[i, j] = np.hypot(xs[i] - xs[j], ys[i] - ys[j])
+            # D[i, j] = np.hypot(xs[i] - xs[j], ys[i] - ys[j])
+            D[i, j] = int(np.floor(np.hypot(xs[i] - xs[j], ys[i] - ys[j])))
      # FCM 解數量
     na = int(pop_size * a_ratio)
 
@@ -61,9 +62,7 @@ def fcm_initial_tours(csv_path, k=10, pop_size=100,a_ratio=0.45,b_ratio=0.45, se
             rng.shuffle(clusters[lab])
             tour.extend(clusters[lab])
         # 對 FCM 生成的路徑做擾動
-        perturbed = perturb_tour(tour, num_swaps=5, rng=rng)
-
-        
+        perturbed = perturb_tour(tour, num_swaps=2, rng=rng)
         tours.append(perturbed)
 
     # —— 方法 B：全域純隨機 ——
