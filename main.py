@@ -108,7 +108,7 @@ plt.show()
 OPT_LEN     = 33523        # att48 的已知最優長度
 THRESHOLDS  = 34148    # 你指定的門檻
 
-hit_opt_cnt = sum(1 for v in oi if v == OPT_LEN)
+hit_opt_cnt = sum(1 for v in oi if v <= OPT_LEN)
 below_thr_cnt = sum(1 for v in oi if v < THRESHOLDS)
 
 print(f"\n★ 命中最佳解 {OPT_LEN} 的次數：{hit_opt_cnt} / {len(oi)}")

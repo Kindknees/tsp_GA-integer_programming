@@ -2,10 +2,11 @@
 import numpy as np
 from utils import tour_length, local_search_mix
 from tabu import tabu_search_vns
+
 class PSO_TSP:
 
     """Permutation PSO 版本：Vel.=swap 序列；Pos.=tour"""
-    def __init__(self, D, pop_size=100, w=0.8, c1=1.4, c2=1,
+    def __init__(self, D, pop_size=100, w=0.8, c1=1.5, c2=1,
                  local_opt=True, seed=None):
         self.D, self.n = D, D.shape[0] - 1            # n = 47 (不含 city0)
         self.rng = np.random.default_rng(seed)
