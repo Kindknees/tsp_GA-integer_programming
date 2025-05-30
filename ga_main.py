@@ -7,18 +7,43 @@ from localsearch import local_search_full    # 你寫的 OR-opt2/3
 
 # ---------- 參數 ----------
 CSV_PATH       = "data/xy48.csv"
-K_CLUSTER      = 10
+K_CLUSTER      = 6
 POP_SIZE       = 100
 A_RATIO, B_RATIO = 0.4, 0.6
 # SEED           = 42
 LOCAL_P        = 0.30     # two-opt 機率
 MUTATE_P       = 0.16     # mutate 機率
-P_TOUR         = 0.85     # p-binary tournament
+P_TOUR         = 0.8     # p-binary tournament
 MAX_GEN        = 750
 OPTIMAL        = 33551    # ATT48 最優
 
 # ---------- 讀距離矩陣 ----------
 D = pd.read_csv("data/USA_distance.csv", header=None).values
+# class Distance():
+#     def __init__(self, filename):
+#         data = pd.read_csv(filename, header=None)
+#         self.x = data[0].values  # 第一欄作為 x 座標
+#         self.y = data[1].values  # 第二欄作為 y 座標
+#     def get_distance(self):
+#         # 計算距離矩陣
+#         n = len(self.x)
+#         distance = np.zeros((n, n))
+#         for i in range(n):
+#             for j in range(n):
+#                 distance[i][j] = np.round(np.sqrt((self.x[i] - self.x[j])**2 + (self.y[i] - self.y[j])**2))
+#         # # 四捨五入
+#         # distance = np.round(distance)
+#         # 轉換為 DataFrame
+#         distance = pd.DataFrame(distance)
+#         distance.index = [f'City {i+1}' for i in range(n)]
+#         distance.columns = [f'City {i+1}' for i in range(n)]
+#         return distance
+# d= Distance('data/xy48.csv')
+# distance = d.get_distance()
+# distance.head()
+# D = distance.to_numpy() #轉成numpy array，我會比較開心
+
+
 N = D.shape[0]            # =48
 
 # ---------- 初始化 ----------
@@ -139,19 +164,23 @@ def GA_TSP():
             if  rng.random() < LOCAL_P:
                 # if rng.random() <  * LOCAL_P:
                 offspring[k] = two_opt(offspring[k],D)
+
                 # else:
                 #     offspring[k] = three_opt(offspring[k],D)
 
-        # 突變 (5 %)
         for k in range(len(offspring)):
             if rng.random() < MUTATE_P:
                 offspring[k] = mutate(offspring[k], rng)
                 offspring[k] = mutate(offspring[k], rng)
 
-
-
         # 生存者篩選 (父母+子女取前 POP_SIZE)
         population = sorted(population+offspring, key=lambda t: tour_length(t,D))[:POP_SIZE]
+
+        # # 突變 (5 %)
+        # for k in range(len(offspring)):
+        #     if rng.random() < MUTATE_P:
+        #         offspring[k] = mutate(offspring[k], rng)
+        #         offspring[k] = mutate(offspring[k], rng)
 
         # 更新最優
         if tour_length(population[0], D) < best_cost:
@@ -184,7 +213,7 @@ if __name__ == "__main__":
     # matplotlib.pyplot.plot(mean_outputs)
     # matplotlib.pyplot.xlabel("Iteration")
     # matplotlib.pyplot.ylabel("Fitness")
-    #matplotlib.pyplot.show()
+    # matplotlib.pyplot.show()
     # ---- 統計 ----
     res = np.array(results)
     mean, median, std = res.mean(), np.median(res), res.std(ddof=1)
@@ -221,9 +250,9 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # route, cost = GA_TSP()
-    # print("Best length :", cost)
-    # print("Best route  :", [0]+route+[0])
+    route, cost = GA_TSP()
+    print("Best length :", cost)
+    print("Best route  :", [0]+route+[0])
 
     # # 畫路徑（按城市序號折線，僅示意）
     # font = FontProperties(fname="NotoSansTC-Regular.otf")
