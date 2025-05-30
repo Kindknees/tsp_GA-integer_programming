@@ -10,11 +10,11 @@ CSV_PATH       = "data/xy48.csv"
 K_CLUSTER      = 10
 POP_SIZE       = 100
 A_RATIO, B_RATIO = 0.4, 0.6
-SEED           = 42
+# SEED           = 42
 LOCAL_P        = 0.30     # two-opt 機率
-MUTATE_P       = 0.23     # mutate 機率
-P_TOUR         = 0.86     # p-binary tournament
-MAX_GEN        = 600
+MUTATE_P       = 0.16     # mutate 機率
+P_TOUR         = 0.85     # p-binary tournament
+MAX_GEN        = 750
 OPTIMAL        = 33551    # ATT48 最優
 
 # ---------- 讀距離矩陣 ----------
@@ -25,7 +25,7 @@ N = D.shape[0]            # =48
 def init_population():
     return fcm_initial_tours(
         CSV_PATH, k=K_CLUSTER, pop_size=POP_SIZE,
-        a_ratio=A_RATIO, b_ratio=B_RATIO, seed=SEED
+        a_ratio=A_RATIO, b_ratio=B_RATIO, seed=None
     )
 
 # ---------- 適應度 ----------
@@ -111,7 +111,7 @@ def mutate(route, rng):
 
 # ---------- GA 主程式 ----------
 def GA_TSP():
-    rng        = np.random.default_rng(SEED)
+    rng        = np.random.default_rng()
     population = init_population()
     best_route = min(population, key=lambda t: tour_length(t, D))
     best_cost  = tour_length(best_route, D)
@@ -171,8 +171,8 @@ if __name__ == "__main__":
     results = []
 
     for run in range(NUM_RUN):
-        # 每回合換一顆 seed，避免族群重覆
-        SEED = 42 + run
+        # # 每回合換一顆 seed，避免族群重覆
+        # SEED = 42 + run
         route, cost,best_outputs,mean_outputs = GA_TSP()      # ← 不用改 GA_TSP 內容
         results.append(cost)
         print(f"Run {run:3d} | best = {cost:.0f}")
