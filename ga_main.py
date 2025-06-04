@@ -2,19 +2,19 @@ import numpy as np, random, pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from initial import fcm_initial_tours
-from utils   import tour_length, two_opt,three_opt
-from localsearch import local_search_full    # 你寫的 OR-opt2/3
-
+from utils   import tour_length, two_opt
+from localsearch import local_search_full,depot_insert_best    # 你寫的 OR-opt2/3
+import time
 # ---------- 參數 ----------
 CSV_PATH       = "data/xy48.csv"
 K_CLUSTER      = 6
 POP_SIZE       = 100
 A_RATIO, B_RATIO = 0.4, 0.6
 # SEED           = 42
-LOCAL_P        = 0.30     # two-opt 機率
-MUTATE_P       = 0.16     # mutate 機率
+LOCAL_P        = 0.10     # two-opt 機率
+MUTATE_P       = 0.15     # mutate 機率
 P_TOUR         = 0.8     # p-binary tournament
-MAX_GEN        = 750
+MAX_GEN        = 800
 OPTIMAL        = 33551    # ATT48 最優
 
 # ---------- 讀距離矩陣 ----------
@@ -155,23 +155,28 @@ def GA_TSP():
         offspring = []
         rng.shuffle(mating_pool)
         for i in range(0, POP_SIZE, 2):
-            c1 = crossover(mating_pool[i], mating_pool[i+1], rng)
-            c2 = crossover(mating_pool[i+1], mating_pool[i], rng)
-            offspring.extend([c1, c2])
-
-        # two-opt (30 %)
-        for k in range(len(offspring)):
-            if  rng.random() < LOCAL_P:
-                # if rng.random() <  * LOCAL_P:
-                offspring[k] = two_opt(offspring[k],D)
-
-                # else:
-                #     offspring[k] = three_opt(offspring[k],D)
+            parent1 = mating_pool[i]
+            parent2 = mating_pool[i+1]
+            # 只生一個孩子，不要 c2
+            child = crossover(parent1, parent2, rng)
+            offspring.append(child)
 
         for k in range(len(offspring)):
             if rng.random() < MUTATE_P:
                 offspring[k] = mutate(offspring[k], rng)
                 offspring[k] = mutate(offspring[k], rng)
+
+        
+        # two-opt (10 %)
+        for k in range(len(offspring)):
+            if  rng.random() < LOCAL_P:
+                # if rng.random() <  * LOCAL_P:
+                offspring[k] = two_opt(offspring[k],D)
+                
+                # else:
+                #     offspring[k] = three_opt(offspring[k],D)
+
+        
 
         # 生存者篩選 (父母+子女取前 POP_SIZE)
         population = sorted(population+offspring, key=lambda t: tour_length(t,D))[:POP_SIZE]
@@ -189,31 +194,39 @@ def GA_TSP():
             break
 
     # 最終 OR-opt2/3 強化
-    best_route = local_search_full(best_route, D)
-    # best_route= three_opt(best_route, D)  # 可選擇性使用 three_opt
+    # best_route = local_search_full(best_route, D)
     best_cost  = tour_length(best_route, D)
     return best_route, best_cost,best_outputs, mean_outputs
 
-# ---------- 執行 ----------
 if __name__ == "__main__":
     NUM_RUN = 100         # ← 要跑幾次
     results = []
 
+    
+    total_time=0
     for run in range(NUM_RUN):
-        # # 每回合換一顆 seed，避免族群重覆
-        # SEED = 42 + run
-        route, cost,best_outputs,mean_outputs = GA_TSP()      # ← 不用改 GA_TSP 內容
+        # 計時開始
+        t0 = time.perf_counter()
+        route, cost, best_outputs, mean_outputs = GA_TSP()      # ← 不用改 GA_TSP 內容
+        total_time = total_time + time.perf_counter() - t0
         results.append(cost)
         print(f"Run {run:3d} | best = {cost:.0f}")
 
+    
+    print(f"\n★ GA 總執行時間：{total_time:.2f} 秒")
+    print(f"★ 平均每次執行時間：{(total_time/NUM_RUN):.4f} 秒")
 
-    # # 畫圖 (new)
-    # import matplotlib.pyplot
-    # matplotlib.pyplot.plot(best_outputs)
-    # matplotlib.pyplot.plot(mean_outputs)
-    # matplotlib.pyplot.xlabel("Iteration")
-    # matplotlib.pyplot.ylabel("Fitness")
-    # matplotlib.pyplot.show()
+    # 以下為原本的統計與繪圖程式…
+    res = np.array(results)
+
+
+    # 畫圖 (new)
+    import matplotlib.pyplot
+    matplotlib.pyplot.plot(best_outputs)
+    matplotlib.pyplot.plot(mean_outputs)
+    matplotlib.pyplot.xlabel("Iteration")
+    matplotlib.pyplot.ylabel("Fitness")
+    matplotlib.pyplot.show()
     # ---- 統計 ----
     res = np.array(results)
     mean, median, std = res.mean(), np.median(res), res.std(ddof=1)
@@ -249,10 +262,6 @@ if __name__ == "__main__":
     plt.grid(axis="y", linestyle="--", alpha=0.4)
     plt.tight_layout()
     plt.show()
-
-    route, cost = GA_TSP()
-    print("Best length :", cost)
-    print("Best route  :", [0]+route+[0])
 
     # # 畫路徑（按城市序號折線，僅示意）
     # font = FontProperties(fname="NotoSansTC-Regular.otf")
