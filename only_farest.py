@@ -91,3 +91,37 @@ if __name__ == "__main__":
     plt.ylabel("Y 坐標", fontproperties=font)
     plt.grid(True)
     plt.show()
+
+import time
+
+start = time.perf_counter()
+tour = farthest_insertion(D)
+elapsed = time.perf_counter() - start
+print(f"Farthest-insertion 耗時：{elapsed:.6f} 秒")
+
+# …existing code…
+import time
+
+if __name__ == "__main__":
+    CSV = "data/xy48.csv"
+    xs, ys = load_distance(CSV)
+    D = build_D(xs, ys)
+
+    # 1) 純 Farthest Insertion
+    start = time.perf_counter()
+    init = farthest_insertion(D)
+    time_fi = time.perf_counter() - start
+    length_init = tour_length(init, D)
+    print(f"Initial farthest insertion length: {length_init:.2f}")
+    print(f"Farthest‐Insertion 耗時：{time_fi:.6f} 秒")
+
+    # 2) Farthest Insertion + OR-opt 強化
+    max_k = 3
+    start = time.perf_counter()
+    refined = local_search(init, D, max_k=max_k)
+    time_refine = time.perf_counter() - start
+    length_refined = tour_length(refined, D)
+    print(f"Refined length after OR-opt1..{max_k}: {length_refined:.2f}")
+    print(f"FI + OR-opt1..{max_k} 耗時：{time_refine:.6f} 秒")
+
+    # …後續視覺化程式碼…

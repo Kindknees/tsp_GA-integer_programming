@@ -1,8 +1,9 @@
 import numpy as np, random, pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
-from initial import fcm_initial_tours
-from utils   import tour_length, two_opt
+from initial import new_initial
+from utils   import tour_length2
+from your_ga_module import two_opt2
 from localsearch import local_search_full,depot_insert_best    # 你寫的 OR-opt2/3
 import time
 # ---------- 參數 ----------
@@ -14,7 +15,7 @@ A_RATIO, B_RATIO = 0.4, 0.6
 LOCAL_P        = 0.10     # two-opt 機率
 MUTATE_P       = 0.15     # mutate 機率
 P_TOUR         = 0.8     # p-binary tournament
-MAX_GEN        = 800
+MAX_GEN        = 50
 OPTIMAL        = 33551    # ATT48 最優
 
 # ---------- 讀距離矩陣 ----------
@@ -48,14 +49,14 @@ N = D.shape[0]            # =48
 
 # ---------- 初始化 ----------
 def init_population():
-    return fcm_initial_tours(
+    return new_initial(
         CSV_PATH, k=K_CLUSTER, pop_size=POP_SIZE,
         a_ratio=A_RATIO, b_ratio=B_RATIO, seed=None
     )
 
 # ---------- 適應度 ----------
 def fitness(route):               # 越大越好
-    return -tour_length(route, D) # = −distance
+    return -tour_length2(route, D) # = −distance
 
 # ---------- selection：p-binary tournament ----------
 def selection(pop, fit, p, rng):
@@ -78,7 +79,9 @@ def crossover(p1, p2, rng=None):
     for parent in (p1, p2):
         for i in range(size):
             a = parent[i]
-            adj[a].update({parent[i-1], parent[(i+1)%size]})
+            pred  = parent[(i-1) % size]    # 前驅（尾→頭）
+            succ  = parent[(i+1) % size]    # 後繼（頭→尾）
+            adj[a].update({pred, succ})
     # 2) 組裝子代
     current = rng.choice(p1)
     child   = [current]
@@ -92,7 +95,6 @@ def crossover(p1, p2, rng=None):
             current   = rng.choice(remaining)
         child.append(current)
     return child
-
 # ---------- mutate (六算子) ----------
 def mutate(route, rng):
     r = rng.random(); n = len(route)
@@ -124,79 +126,99 @@ def mutate(route, rng):
         if D[a][b]+D[c][d] > D[a][c]+D[b][d]:
             route[i+1:j+1] = reversed(route[i+1:j+1])
     else:
-        idx = rng.integers(n)
-        city = route[idx]
-        nearest = min(range(1,N), key=lambda x: np.inf if x==city else D[city][x])
-        j = route.index(nearest)
-        if abs(j-idx) not in (1, n-1):
-            route.pop(idx)
-            j = route.index(nearest)
-            route.insert(j+1, city)
+        # 6. 把最佳插入點 k 插進 a,b 之間
+        idx  = rng.integers(n)
+        city = route.pop(idx)          # 先拔掉自己
+        # 拿到左右鄰居 a,b
+        a = route[idx-1]
+        b = route[idx % len(route)]
+        # 在所有剩餘城市找 k，使 a→k→b 最短
+        k = min(route, key=lambda x: D[a][x] + D[x][b])
+        j = route.index(k)
+        route.insert(j+1, city)        # 把 city 插到 k 後
     return route
 
 # ---------- GA 主程式 ----------
 def GA_TSP():
-    rng        = np.random.default_rng()
-    population = init_population()
-    best_route = min(population, key=lambda t: tour_length(t, D))
-    best_cost  = tour_length(best_route, D)
-    best_outputs = []                           # 用此變數來紀錄每一個迴圈的最佳解 (new)
-            # 存下初始群體的最佳解 (new)
+    rng = np.random.default_rng()
 
-    mean_outputs = []                           # 用此變數來紀錄每一個迴圈的平均解 (new)
-    
-    for gen in range(1, MAX_GEN+1):
-        # 選擇
-        fit   = [fitness(t) for t in population]
-        mean_outputs.append(np.average(fit))        # 存下初始群體的最佳解 (new)
-        best_outputs.append(np.max(fit))
-        mating_pool = selection(population, fit, P_TOUR, rng)
-        # 交配
-        offspring = []
+    # 1) 初始化：產生初始族群
+    population = init_population()  # 回傳 100 條路徑
+    # 1-a) 直接計算 fitness = -tour_length2
+    pop_fit = [ -tour_length2(route, D) for route in population ]
+
+    # 找出一開始的 best
+    best_fit   = max(pop_fit)
+    best_route = population[ pop_fit.index(best_fit) ].copy()
+
+    best_outputs = []
+    mean_outputs = []
+
+    for gen in range(1, MAX_GEN + 1):
+        # 紀錄 mean/best fitness
+        mean_outputs.append(np.mean(pop_fit))
+        best_outputs.append(best_fit)
+
+        # 2) 選擇：p‐binary tournament（用 fitness 做比較）
+        mating_pool = selection(population, pop_fit, P_TOUR, rng)
+        #   ※ 下面 selection 就改成比較 pop_fit 而非重算 tour_length2
+
+        # 3) 交配、產生 offspring
+        offspring     = []
+        offspring_fit = []
+
         rng.shuffle(mating_pool)
         for i in range(0, POP_SIZE, 2):
-            parent1 = mating_pool[i]
-            parent2 = mating_pool[i+1]
-            # 只生一個孩子，不要 c2
-            child = crossover(parent1, parent2, rng)
+            p1 = mating_pool[i]
+            p2 = mating_pool[i+1]
+            child = crossover(p1, p2, rng)
+
+            # 交配後立刻計算 fitness
+            f = -tour_length2(child, D)
             offspring.append(child)
+            offspring_fit.append(f)
 
-        for k in range(len(offspring)):
+        # 4) 突變／two-opt：只要做了路徑改動就重新計算 fitness
+        for idx in range(len(offspring)):
+            route = offspring[idx]
+
+            # 突變
             if rng.random() < MUTATE_P:
-                offspring[k] = mutate(offspring[k], rng)
-                offspring[k] = mutate(offspring[k], rng)
+                route = mutate(route, rng)
+                offspring[idx] = route
+                offspring_fit[idx] = -tour_length2(route, D)
 
-        
-        # two-opt (10 %)
-        for k in range(len(offspring)):
-            if  rng.random() < LOCAL_P:
-                # if rng.random() <  * LOCAL_P:
-                offspring[k] = two_opt(offspring[k],D)
-                
-                # else:
-                #     offspring[k] = three_opt(offspring[k],D)
+            # 2-opt
+            if rng.random() < LOCAL_P:
+                route = two_opt2(route, D)
+                offspring[idx] = route
+                offspring_fit[idx] = -tour_length2(route, D)
 
-        
+        # 5) 合併：父母 + 子代
+        combined_pop  = population   + offspring
+        combined_fit  = pop_fit      + offspring_fit
 
-        # 生存者篩選 (父母+子女取前 POP_SIZE)
-        population = sorted(population+offspring, key=lambda t: tour_length(t,D))[:POP_SIZE]
+        # 6) 排序：直接用 fitness 由大排到小，取前 POP_SIZE
+        zipped = list(zip(combined_fit, combined_pop))
+        # zipped[i] = (fitness_i, route_i)
+        # sort by fitness descending
+        zipped.sort(key=lambda x: x[0], reverse=True)
 
-        # # 突變 (5 %)
-        # for k in range(len(offspring)):
-        #     if rng.random() < MUTATE_P:
-        #         offspring[k] = mutate(offspring[k], rng)
-        #         offspring[k] = mutate(offspring[k], rng)
+        # 7) 保留前 100 條
+        top = zipped[:POP_SIZE]
+        pop_fit    = [f for (f, r) in top]
+        population = [r for (f, r) in top]
 
-        # 更新最優
-        if tour_length(population[0], D) < best_cost:
-            best_route, best_cost = population[0].copy(), tour_length(population[0], D)
-        if best_cost <= OPTIMAL:
+        # 8) 更新 best
+        if pop_fit[0] > best_fit:
+            best_fit   = pop_fit[0]
+            best_route = population[0].copy()
+        if -best_fit <= OPTIMAL:  # cost = -best_fit
             break
 
-    # 最終 OR-opt2/3 強化
-    # best_route = local_search_full(best_route, D)
-    best_cost  = tour_length(best_route, D)
-    return best_route, best_cost,best_outputs, mean_outputs
+    # 回傳最終 best route & cost
+    return best_route, -best_fit, best_outputs, mean_outputs
+
 
 if __name__ == "__main__":
     NUM_RUN = 100         # ← 要跑幾次
@@ -205,7 +227,7 @@ if __name__ == "__main__":
     
     total_time=0
     for run in range(NUM_RUN):
-        # 計時開始
+        # 計時開始depot_insert_best
         t0 = time.perf_counter()
         route, cost, best_outputs, mean_outputs = GA_TSP()      # ← 不用改 GA_TSP 內容
         total_time = total_time + time.perf_counter() - t0
@@ -220,13 +242,13 @@ if __name__ == "__main__":
     res = np.array(results)
 
 
-    # 畫圖 (new)
-    import matplotlib.pyplot
-    matplotlib.pyplot.plot(best_outputs)
-    matplotlib.pyplot.plot(mean_outputs)
-    matplotlib.pyplot.xlabel("Iteration")
-    matplotlib.pyplot.ylabel("Fitness")
-    matplotlib.pyplot.show()
+    # # 畫圖 (new)
+    # import matplotlib.pyplot
+    # matplotlib.pyplot.plot(best_outputs)
+    # matplotlib.pyplot.plot(mean_outputs)
+    # matplotlib.pyplot.xlabel("Iteration")
+    # matplotlib.pyplot.ylabel("Fitness")
+    # matplotlib.pyplot.show()
     # ---- 統計 ----
     res = np.array(results)
     mean, median, std = res.mean(), np.median(res), res.std(ddof=1)

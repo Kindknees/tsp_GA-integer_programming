@@ -10,6 +10,13 @@ def tour_length(tour, D):
         dist += D[tour[i], tour[i+1]]
     return dist
 
+def tour_length2(tour, D):
+    """tour = list[int] (city1…city48)；回傳完整 (a-…-a) 距離"""
+    n = len(tour)
+    dist =D[tour[-1], tour[0]]
+    for i in range(n-1):
+        dist += D[tour[i], tour[i+1]]
+    return dist
 def two_opt(tour, D):
     """簡易兩段翻轉；貪婪只做一次改進"""
     best = tour

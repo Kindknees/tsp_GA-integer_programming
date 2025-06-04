@@ -2,19 +2,19 @@ import numpy as np, random, pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from initial import fcm_initial_tours
-from utils   import tour_length, two_opt
-from localsearch import local_search_full,depot_insert_best    # 你寫的 OR-opt2/3
-import time
+from utils   import tour_length, two_opt,three_opt
+from localsearch import local_search_full    # 你寫的 OR-opt2/3
+
 # ---------- 參數 ----------
 CSV_PATH       = "data/xy48.csv"
 K_CLUSTER      = 6
 POP_SIZE       = 100
 A_RATIO, B_RATIO = 0.4, 0.6
 # SEED           = 42
-LOCAL_P        = 0.10     # two-opt 機率
-MUTATE_P       = 0.15     # mutate 機率
+LOCAL_P        = 0.30     # two-opt 機率
+MUTATE_P       = 0.16     # mutate 機率
 P_TOUR         = 0.8     # p-binary tournament
-MAX_GEN        = 800
+MAX_GEN        = 750
 OPTIMAL        = 33551    # ATT48 最優
 
 # ---------- 讀距離矩陣 ----------
@@ -45,6 +45,67 @@ D = pd.read_csv("data/USA_distance.csv", header=None).values
 
 
 N = D.shape[0]            # =48
+
+def mutate_L_i_R(route, rng):
+    """
+    這個函式只實作「L→i→R 範圍內，找一個 X 讓 D[L][X] + D[X][R] 最小；若最小的 X != city，就把它們 swap」。
+    其餘算子請另行整合到完整的 mutate() 函式裡。
+    
+    參數:
+      route: list of int
+        當前的路徑排列 (環狀)，例如 [1, 3, 5, 2, 4]
+      rng: numpy.random.Generator
+        已初始化的隨機數生成器，用來隨機挑 idx
+    
+    全域要求:
+      D: 二維距離矩陣 (list of lists 或 numpy.ndarray)，必須事先定義好
+         D[a][b] 表示 city a → city b 的距離
+      N: 整數，代表「城市總數」，假設編號是從 1 開始到 N-1 (或 0 ~ N-1)，這裡我們只要確保 D 有涵蓋所有編號即可。
+    回傳:
+      route（修改後或與原本相同）
+    """
+    n = len(route)
+    # 1) 隨機挑一個位置 idx，並把 city 暫存
+    idx  = rng.integers(n)
+    city = route[idx]
+    
+    # 2) 找環狀路徑上的左右鄰居索引及其城市編號
+    L_idx = (idx - 1) % n
+    R_idx = (idx + 1) % n
+    L = route[L_idx]
+    R = route[R_idx]
+    
+    # 3) 列出「所有可當中間 X 的候選列表」
+    #    候選範圍：route 裡的所有城市，但排除 L, R
+    #    注意要把 city 自己也放進來候選集，因為可能留下 city 最佳
+    candidates = []
+    for x in route:
+        if x != L and x != R:
+            candidates.append(x)
+    
+    # 4) 在 candidates 中找出讓 D[L][X] + D[X][R] 最小的 X_best
+    #    若 candidates 只剩下一個 city，本質上就等於 X_best = city
+    best_X = None
+    best_cost = float("inf")
+    for X in candidates:
+        cost = D[L][X] + D[X][R]
+        if cost < best_cost:
+            best_cost  = cost
+            best_X     = X
+    
+    # 5) 如果 X_best 不是當初的 city，就把它們在 route 中對調
+    if best_X is not None and best_X != city:
+        # 找出 X_best 在 route 中的索引 j
+        j = route.index(best_X)
+        # 把 route[idx] 和 route[j] 互換
+        route[idx], route[j] = route[j], route[idx]
+        # 交換後，route[idx] 原本的 city 跑到 j，best_X 跑到 idx
+        # 這就等於把 city 放到 best_X 原本所在的那一格
+        # 而 best_X 會瞬間跑進 (L,R) 之間，保證 L→best_X→R 的距離最小
+    # 否則 best_X == city，或沒有候選（理論上不會沒候選），就維持 route 不變
+    
+    return route
+
 
 # ---------- 初始化 ----------
 def init_population():
@@ -124,14 +185,33 @@ def mutate(route, rng):
         if D[a][b]+D[c][d] > D[a][c]+D[b][d]:
             route[i+1:j+1] = reversed(route[i+1:j+1])
     else:
-        idx = rng.integers(n)
+
+        # 這裡插入上面 mutate_L_i_R 的核心邏輯
+        idx  = rng.integers(n)
         city = route[idx]
-        nearest = min(range(1,N), key=lambda x: np.inf if x==city else D[city][x])
-        j = route.index(nearest)
-        if abs(j-idx) not in (1, n-1):
-            route.pop(idx)
-            j = route.index(nearest)
-            route.insert(j+1, city)
+        L_idx = (idx - 1) % n
+        R_idx = (idx + 1) % n
+        L = route[L_idx]
+        R = route[R_idx]
+
+        candidates = []
+        for x in route:
+            if x != L and x != R:
+                candidates.append(x)
+
+        best_X = None
+        best_cost = float("inf")
+        for X in candidates:
+            cost = D[L][X] + D[X][R]
+            if cost < best_cost:
+                best_cost = cost
+                best_X    = X
+
+        if best_X is not None and best_X != city:
+            j = route.index(best_X)
+            route[idx], route[j] = route[j], route[idx]
+
+    return route
     return route
 
 # ---------- GA 主程式 ----------
@@ -155,24 +235,21 @@ def GA_TSP():
         offspring = []
         rng.shuffle(mating_pool)
         for i in range(0, POP_SIZE, 2):
-            parent1 = mating_pool[i]
-            parent2 = mating_pool[i+1]
-            # 只生一個孩子，不要 c2
-            child = crossover(parent1, parent2, rng)
-            offspring.append(child)
+            c1 = crossover(mating_pool[i], mating_pool[i+1], rng)
+            c2 = crossover(mating_pool[i+1], mating_pool[i], rng)
+            offspring.extend([c1, c2])
 
         for k in range(len(offspring)):
             if rng.random() < MUTATE_P:
                 offspring[k] = mutate(offspring[k], rng)
                 offspring[k] = mutate(offspring[k], rng)
 
-        
-        # two-opt (10 %)
+        # two-opt (30 %)
         for k in range(len(offspring)):
             if  rng.random() < LOCAL_P:
                 # if rng.random() <  * LOCAL_P:
                 offspring[k] = two_opt(offspring[k],D)
-                
+
                 # else:
                 #     offspring[k] = three_opt(offspring[k],D)
 
@@ -194,39 +271,31 @@ def GA_TSP():
             break
 
     # 最終 OR-opt2/3 強化
-    # best_route = local_search_full(best_route, D)
+    best_route = local_search_full(best_route, D)
+    # best_route= three_opt(best_route, D)  # 可選擇性使用 three_opt
     best_cost  = tour_length(best_route, D)
     return best_route, best_cost,best_outputs, mean_outputs
 
+# ---------- 執行 ----------
 if __name__ == "__main__":
     NUM_RUN = 100         # ← 要跑幾次
     results = []
 
-    
-    total_time=0
     for run in range(NUM_RUN):
-        # 計時開始
-        t0 = time.perf_counter()
-        route, cost, best_outputs, mean_outputs = GA_TSP()      # ← 不用改 GA_TSP 內容
-        total_time = total_time + time.perf_counter() - t0
+        # # 每回合換一顆 seed，避免族群重覆
+        # SEED = 42 + run
+        route, cost,best_outputs,mean_outputs = GA_TSP()      # ← 不用改 GA_TSP 內容
         results.append(cost)
         print(f"Run {run:3d} | best = {cost:.0f}")
 
-    
-    print(f"\n★ GA 總執行時間：{total_time:.2f} 秒")
-    print(f"★ 平均每次執行時間：{(total_time/NUM_RUN):.4f} 秒")
 
-    # 以下為原本的統計與繪圖程式…
-    res = np.array(results)
-
-
-    # 畫圖 (new)
-    import matplotlib.pyplot
-    matplotlib.pyplot.plot(best_outputs)
-    matplotlib.pyplot.plot(mean_outputs)
-    matplotlib.pyplot.xlabel("Iteration")
-    matplotlib.pyplot.ylabel("Fitness")
-    matplotlib.pyplot.show()
+    # # 畫圖 (new)
+    # import matplotlib.pyplot
+    # matplotlib.pyplot.plot(best_outputs)
+    # matplotlib.pyplot.plot(mean_outputs)
+    # matplotlib.pyplot.xlabel("Iteration")
+    # matplotlib.pyplot.ylabel("Fitness")
+    # matplotlib.pyplot.show()
     # ---- 統計 ----
     res = np.array(results)
     mean, median, std = res.mean(), np.median(res), res.std(ddof=1)
@@ -262,6 +331,10 @@ if __name__ == "__main__":
     plt.grid(axis="y", linestyle="--", alpha=0.4)
     plt.tight_layout()
     plt.show()
+
+    route, cost = GA_TSP()
+    print("Best length :", cost)
+    print("Best route  :", [0]+route+[0])
 
     # # 畫路徑（按城市序號折線，僅示意）
     # font = FontProperties(fname="NotoSansTC-Regular.otf")

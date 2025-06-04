@@ -128,5 +128,30 @@ def mutate(route):
     return new_route
 
 
+def two_opt2 (route, D):
+    """對路徑應用2-opt鄰域優化，返回可能改進後的路徑"""
+    n = len(route)
+    improved = True
+    while improved:  # 持續嘗試2-opt直到無改善
+        improved = False
+        for i in range(n - 1):
+            for j in range(i + 2, n):
+                # 修改：考慮閉合路徑的情況，跳過首尾相鄰邊組合，以免移除兩條共用節點的邊
+                if i == 0 and j == n - 1:
+                    continue  # 略過移除 route[-1]->route[0] 和 route[0]->route[1] 這種相鄰邊情況
+                # 定義當前考慮移除的兩條邊：
+                a, b = route[i], route[i+1]
+                c, d = route[j], route[(j+1) % n]  # (j+1)%n 確保考慮到末節點與首節點的邊
+                # 計算移除前後的距離變化
+                old_dist = D[a][b] + D[c][d]
+                new_dist = D[a][c] + D[b][d]
+                if new_dist < old_dist:
+                    # 如有改善，執行2-opt交換：反轉 route[i+1...j] 段
+                    route[i+1:j+1] = route[i+1:j+1][::-1]
+                    improved = True
+                    break  # 執行一次改善後跳出內層迴圈，重新開始掃描
+            if improved:
+                break
+    return route
 
 
