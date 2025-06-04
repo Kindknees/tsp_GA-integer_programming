@@ -56,3 +56,30 @@ def local_search_full(route, D):
         else:
             return cur
 # print("localsearch.py",local_search_full( [15, 21, 2, 33, 40, 28, 1, 41, 25, 3, 34, 44, 9, 23, 4, 47, 38, 31, 20, 46, 12, 24, 13, 22, 10, 11, 39, 14, 45, 32, 19, 29, 42, 16, 26, 18, 36, 5, 27, 35, 6, 17, 43, 30, 37, 8, 7],D))
+def depot_insert_best(route, D):
+    """在 route 中嘗試把『任一城市』放到頭或尾，回傳最短路徑。
+       route 只含 1…N-1；D 是距離矩陣；O(n²)。
+    """
+    best_route = route                  # 目前最佳
+    best_len   = tour_length(route, D)  # 目前成本
+    n = len(route)
+
+    for idx in range(n):
+        city = route[idx]
+
+        # 拿掉 city 之後的剩餘路徑
+        rem = route[:idx] + route[idx+1:]
+
+        # (1) city 插到最前面
+        r1   = [city] + rem
+        len1 = tour_length(r1, D)
+        if len1 < best_len:
+            best_route, best_len = r1, len1
+
+        # (2) city 插到最後面
+        r2   = rem + [city]
+        len2 = tour_length(r2, D)
+        if len2 < best_len:
+            best_route, best_len = r2, len2
+
+    return best_route
