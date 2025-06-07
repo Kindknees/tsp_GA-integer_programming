@@ -15,7 +15,8 @@ A_RATIO, B_RATIO = 0.4, 0.6
 LOCAL_P        = 0.10     # two-opt 機率
 MUTATE_P       = 0.15     # mutate 機率
 P_TOUR         = 0.8     # p-binary tournament
-MAX_GEN        = 50
+
+MAX_GEN        = 70
 OPTIMAL        = 33551    # ATT48 最優
 
 # ---------- 讀距離矩陣 ----------
@@ -294,7 +295,9 @@ if __name__ == "__main__":
 
 
     # # 把 depot(0) 加到首尾形成完整巡迴
-    # full_route = [0] + route + [0]
+
+    # full_route = route + [route[0]]
+
 
     # # 把路徑轉成座標序列
     # points = coords.iloc[full_route]
@@ -309,4 +312,6 @@ if __name__ == "__main__":
     # plt.legend()
     # plt.grid(True)
     # plt.axis("equal")
+
     # plt.show()
+
