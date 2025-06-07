@@ -221,7 +221,7 @@ def GA_TSP():
 
 
 if __name__ == "__main__":
-    NUM_RUN = 100         # ← 要跑幾次
+    NUM_RUN = 1         # ← 要跑幾次
     results = []
 
     
